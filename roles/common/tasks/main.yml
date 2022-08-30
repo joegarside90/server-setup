@@ -1,0 +1,24 @@
+- name: Install Gnome
+  ansible.builtin.apt:
+    name: task-gnome-desktop
+    state: present
+
+- name: Install git
+  ansible.builtin.apt:
+    name: git
+    state: present
+
+- name: Install vim
+  ansible.builtin.apt:
+    name: vim
+    state: present
+
+- name: Install Thunderbird
+  ansible.builtin.apt:
+    name: thunderbird
+    state: present
+
+- name: Install KeepassXC
+  ansible.builtin.apt:
+    name: keepassxc
+    state: present
