@@ -1,0 +1,18 @@
+- name: Install Work Flatpak Applications
+  community.general.flatpak:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - com.slack.Slack
+    - com.google.Chrome
+
+- name: Install 1Password
+  ansible.builtin.apt:
+    deb: https://downloads.1password.com/linux/debian/amd64/stable/1password-latest.deb
+
+- name: Create work repo directory
+  ansible.builtin.file:
+    path: /home/sam/repos/madetech
+    owner: sam
+    group: sam
+    state: directory

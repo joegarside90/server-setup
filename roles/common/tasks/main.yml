@@ -1,24 +1,138 @@
-- name: Install Gnome
-  ansible.builtin.apt:
-    name: task-gnome-desktop
+- name: Remove Firefox snap 
+  community.general.snap:
+    name: firefox
+    state: absent
+
+
+
+- name: Add Terraform repository key
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
     state: present
 
-- name: Install git
+- name: Add Terraform repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com jammy main"
+    state: present
+    filename: hashicorp
+
+- name: Install Applications
   ansible.builtin.apt:
-    name: git
+    pkg: 
+      - git
+      - vim
+      - flatpak
+      - gnome-software-plugin-flatpak
+      - terraform
+    update_cache: yes
     state: present
 
-- name: Install vim
-  ansible.builtin.apt:
-    name: vim
+- name: Add the flathub flatpak repository
+  community.general.flatpak_remote:
+    name: gnome
     state: present
+    flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
 
-- name: Install Thunderbird
-  ansible.builtin.apt:
-    name: thunderbird
+- name: Install Flatpak Applications
+  community.general.flatpak:
+    name: "{{ item }}"
     state: present
+  loop:
+    - org.mozilla.firefox
+    - org.mozilla.Thunderbird
+    - org.libreoffice.LibreOffice
+    - com.spotify.Client
+    - org.keepassxc.KeePassXC
 
-- name: Install KeepassXC
+
+- name: Install Visual Studio Code
   ansible.builtin.apt:
-    name: keepassxc
+    deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+
+- name: Install workaround to get VS Code Live Sharing working in 22.04
+  ansible.builtin.apt:
+    deb: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb
+
+- name: Check if awscli is installed
+  stat:
+    path: /usr/local/bin/aws
+  register: aws
+
+- name: Download awscli
+  ansible.builtin.unarchive:
+    src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: /home/sam/Downloads/
+    remote_src: yes
+  when: aws.stat.islnk is not defined
+
+- name: Install awscli
+  ansible.builtin.shell: sudo /home/sam/Downloads/aws/install
+  when: aws.stat.islnk is not defined
+
+- name: Download and Install aws-vault
+  ansible.builtin.get_url:
+    url: https://github.com/99designs/aws-vault/releases/latest/download/aws-vault-linux-amd64
+    dest: /usr/local/bin/aws-vault
+    mode: '0755'
+    checksum: sha256:https://github.com/99designs/aws-vault/releases/latest/download/SHA256SUMS
+
+- name: Check if Pyenv is installed
+  stat:
+    path: /home/sam/.pyenv
+  register: pyenv
+
+- name: Install Pyenv Prerequisites
+  ansible.builtin.apt:
+    pkg: 
+      - make
+      - build-essential
+      - libssl-dev
+      - zlib1g-dev
+      - libbz2-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - wget
+      - curl
+      - llvm
+      - libncursesw5-dev
+      - xz-utils
+      - tk-dev
+      - libxml2-dev
+      - libxmlsec1-dev
+      - libffi-dev
+      - liblzma-dev
+    update_cache: yes
     state: present
+  when: not pyenv.stat.exists
+
+- name: Dowload pyenv Installer
+  ansible.builtin.get_url:
+    url: https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer
+    dest: /home/sam/pyenv-installer
+    mode: '0755'
+  when: not pyenv.stat.exists
+
+- name: Install pyenv
+  ansible.builtin.command: /home/sam/pyenv-installer
+  become_user: sam
+  when: not pyenv.stat.exists
+
+- name: Create sbt92 repo directory
+  ansible.builtin.file:
+    path: /home/sam/repos/sbt92
+    owner: sam
+    group: sam
+    state: directory
+
+
+- name: Checkout dotfiles
+  ansible.builtin.git:
+    repo: https://github.com/sbt92/dotfiles.git
+    dest: /home/sam/repos/sbt92/dotfiles
+
+- name: Install dotfiles
+  ansible.builtin.shell: /home/sam/repos/sbt92/dotfiles/install.sh
+  become_user: sam
+  args:
+    chdir: /home/sam/repos/sbt92/dotfiles/

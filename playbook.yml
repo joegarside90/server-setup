@@ -1,0 +1,6 @@
+- hosts: localhost
+  become: true
+  roles:
+    - role: common
+    - role: geerlingguy.docker
+    - role: work
