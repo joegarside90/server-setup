@@ -3,19 +3,25 @@
     name: firefox
     state: absent
 
-
-
 - name: Add Terraform repository key
   ansible.builtin.apt_key:
     url: https://apt.releases.hashicorp.com/gpg
     keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
     state: present
 
-- name: Add Terraform repository
+- name: Add Terraform repository 22.04
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com jammy main"
     state: present
     filename: hashicorp
+  when: ansible_facts['lsb']['release'] == "22.04"
+
+- name: Add Terraform repository 22.10
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com kinetic main"
+    state: present
+    filename: hashicorp
+  when: ansible_facts['lsb']['release'] == "22.10"
 
 - name: Install Applications
   ansible.builtin.apt:
@@ -46,13 +52,20 @@
     - org.keepassxc.KeePassXC
 
 
+- name: Check if Visual Studio Code is installed
+  stat:
+    path: /bin/code
+  register: vscode
+
 - name: Install Visual Studio Code
   ansible.builtin.apt:
     deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+  when: vscode.stat.islnk is not defined
 
 - name: Install workaround to get VS Code Live Sharing working in 22.04
   ansible.builtin.apt:
     deb: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb
+  when: vscode.stat.islnk is not defined
 
 - name: Check if awscli is installed
   stat:
