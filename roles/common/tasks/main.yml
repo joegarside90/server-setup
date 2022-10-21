@@ -16,12 +16,12 @@
     filename: hashicorp
   when: ansible_facts['lsb']['release'] == "22.04"
 
-- name: Add Terraform repository 22.10
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com kinetic main"
-    state: present
-    filename: hashicorp
-  when: ansible_facts['lsb']['release'] == "22.10"
+# - name: Add Terraform repository 22.10
+#   ansible.builtin.apt_repository:
+#     repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com kinetic main"
+#     state: present
+#     filename: hashicorp
+#   when: ansible_facts['lsb']['release'] == "22.10"
 
 - name: Install Applications
   ansible.builtin.apt:
@@ -30,9 +30,18 @@
       - vim
       - flatpak
       - gnome-software-plugin-flatpak
-      - terraform
+      # - terraform
     update_cache: yes
     state: present
+
+- name: Install Terraform 22.04
+  ansible.builtin.apt:
+    pkg: 
+       - terraform
+    update_cache: yes
+    state: present
+  when: ansible_facts['lsb']['release'] == "22.04"
+
 
 - name: Add the flathub flatpak repository
   community.general.flatpak_remote:
