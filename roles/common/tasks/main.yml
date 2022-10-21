@@ -36,7 +36,7 @@
 
 - name: Add the flathub flatpak repository
   community.general.flatpak_remote:
-    name: gnome
+    name: flathub
     state: present
     flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
 
