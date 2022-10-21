@@ -3,6 +3,10 @@
     name: firefox
     state: absent
 
+- name: Disable Ubuntu Dock
+  ansible.builtin.shell: gnome-extensions disable ubuntu-dock@ubuntu.com
+  become_user: sam
+
 - name: Add Terraform repository key
   ansible.builtin.apt_key:
     url: https://apt.releases.hashicorp.com/gpg
