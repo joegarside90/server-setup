@@ -63,6 +63,7 @@
     - org.libreoffice.LibreOffice
     - com.spotify.Client
     - org.keepassxc.KeePassXC
+    - com.google.Chrome
 
 
 - name: Check if Visual Studio Code is installed
@@ -143,6 +144,11 @@
   ansible.builtin.command: /home/sam/pyenv-installer
   become_user: sam
   when: not pyenv.stat.exists
+
+- name: rm pyenv installer script
+  ansible.builtin.file:
+    path: /home/sam/pyenv-installer
+    state: absent
 
 - name: Create sbt92 repo directory
   ansible.builtin.file:
