@@ -35,6 +35,7 @@
       - flatpak
       - gnome-software-plugin-flatpak
       - xclip
+      - evolution
       # - terraform
     update_cache: yes
     state: present
@@ -60,11 +61,13 @@
     state: present
   loop:
     - org.mozilla.firefox
-    - org.mozilla.Thunderbird
     - org.libreoffice.LibreOffice
     - com.spotify.Client
     - org.keepassxc.KeePassXC
     - com.google.Chrome
+    - org.gnome.clocks
+    - org.gnome.Calendar
+    - com.mattjakeman.ExtensionManager
 
 
 - name: Check if Visual Studio Code is installed
@@ -158,14 +161,20 @@
     group: sam
     state: directory
 
+- name: Check if dotfiles are installed
+  stat:
+    path: /home/sam/repos/sbt92/dotfiles
+  register: dotfiles
 
 - name: Checkout dotfiles
   ansible.builtin.git:
     repo: https://github.com/sbt92/dotfiles.git
     dest: /home/sam/repos/sbt92/dotfiles
+  when: not dotfiles.stat.exists
 
 - name: Install dotfiles
   ansible.builtin.shell: /home/sam/repos/sbt92/dotfiles/install.sh
   become_user: sam
   args:
     chdir: /home/sam/repos/sbt92/dotfiles/
+  when: not dotfiles.stat.exists
