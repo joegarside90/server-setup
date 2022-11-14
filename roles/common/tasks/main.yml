@@ -80,11 +80,6 @@
     deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
   when: vscode.stat.islnk is not defined
 
-- name: Install workaround to get VS Code Live Sharing working in 22.04
-  ansible.builtin.apt:
-    deb: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb
-  when: vscode.stat.islnk is not defined
-
 - name: Check if awscli is installed
   stat:
     path: /usr/local/bin/aws
