@@ -36,6 +36,7 @@
       - gnome-software-plugin-flatpak
       - xclip
       - evolution
+      - wireguard
       # - terraform
     update_cache: yes
     state: present
