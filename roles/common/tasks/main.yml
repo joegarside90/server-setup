@@ -37,9 +37,23 @@
       - xclip
       - evolution
       - wireguard
+      - zsh
       # - terraform
     update_cache: yes
     state: present
+
+- name: Change shell to ZSH
+  ansible.builtin.shell: chsh -s $(which zsh)
+  become_user: sam
+
+- name: Install oh-my-zsh
+  ansible.builtin.shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  become_user: sam
+
+- name: Install ZSH syntax highlighting
+  ansible.builtin.shell: git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+  become_user: sam
+
 
 - name: Install Terraform 22.04
   ansible.builtin.apt:
