@@ -22,6 +22,10 @@
       - xclip
       - wireguard
       - zsh
+      - qemu-system
+      - libvirt-clients
+      - libvirt-daemon-system
+      - virt-manager
       # - terraform
     update_cache: yes
     state: present
@@ -34,10 +38,11 @@
     state: present
   when: ansible_facts['lsb']['codename'] == "bullseye"
 
-- name: change user shell to zsh 
+- name: change user shell to zsh and append kvm group 
   user:
     name: sam
     shell: /usr/bin/zsh
+    groups: libvirt
 
 - name: Check if oh-my-zsh is installed
   stat:
