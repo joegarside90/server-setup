@@ -78,7 +78,7 @@
 
 - name: Check if Visual Studio Code is installed
   stat:
-    path: /bin/code
+    path: /usr/bin/code
   register: vscode
 
 - name: Install Visual Studio Code
