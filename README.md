@@ -6,7 +6,7 @@ This is an Ansible Playbook to get my Debian workstation up and running as quick
 As your created user will not have sudo access its probably worth adding your user to the sudo group and restarting
 ```
 su -
-usermod -aG sam
+usermod -aG sudo sam
 ```
 
 Once you've downloaded the repo uncomment the roles you want. e.g. Work for Work Machines. Note if your distro has just released some third party repositories may not be supported yet like Hashicorp and Docker
