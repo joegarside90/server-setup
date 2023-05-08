@@ -1,3 +1,10 @@
+- name: Add Backports repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://deb.debian.org/debian bookworm-backports main"
+    state: present
+    filename: backports
+  when: ansible_facts['lsb']['codename'] == "bookworm"
+
 - name: Add Terraform repository key
   ansible.builtin.apt_key:
     url: https://apt.releases.hashicorp.com/gpg
