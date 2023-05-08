@@ -46,14 +46,14 @@
   when: ansible_facts['lsb']['codename'] == "bullseye"
 
 - name: change user shell to zsh and append kvm group 
-  user:
+  ansible.builtin.user:
     name: sam
     shell: /usr/bin/zsh
     groups: libvirt
     append: true
 
 - name: Check if oh-my-zsh is installed
-  stat:
+  ansible.builtin.stat:
     path: /home/sam/.oh-my-zsh
   register: ohmyzsh
 
@@ -85,7 +85,7 @@
     - com.mattjakeman.ExtensionManager
 
 - name: Check if Visual Studio Code is installed
-  stat:
+  ansible.builtin.stat:
     path: /usr/bin/code
   register: vscode
 
@@ -95,7 +95,7 @@
   when: vscode.stat.islnk is not defined
 
 - name: Check if awscli is installed
-  stat:
+  ansible.builtin.stat:
     path: /usr/local/bin/aws
   register: aws
 
@@ -116,7 +116,7 @@
     state: absent
 
 - name: Check if aws-vault is installed
-  stat:
+  ansible.builtin.stat:
     path: /usr/local/bin/aws-vault
   register: awsvault
 
@@ -129,7 +129,7 @@
   when: awsvault.stat.islnk is not defined
 
 - name: Check if Pyenv is installed
-  stat:
+  ansible.builtin.stat:
     path: /home/sam/.pyenv
   register: pyenv
 
@@ -183,7 +183,7 @@
     state: directory
 
 - name: Check if dotfiles are installed
-  stat:
+  ansible.builtin.stat:
     path: /home/sam/.dotfiles
   register: dotfiles
 
