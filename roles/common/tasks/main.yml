@@ -10,14 +10,14 @@
     url: https://apt.releases.hashicorp.com/gpg
     keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
     state: present
-  when: ansible_facts['lsb']['codename'] == "bullseye"
+  when: ansible_facts['lsb']['codename'] == "bookworm"
 
-- name: Add Terraform repository 22.04
+- name: Add Terraform repository
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com bookworm main"
     state: present
     filename: hashicorp
-  when: ansible_facts['lsb']['codename'] == "bullseye"
+  when: ansible_facts['lsb']['codename'] == "bookworm"
 
 - name: Install Applications
   ansible.builtin.apt:
@@ -29,21 +29,14 @@
       - xclip
       - wireguard
       - zsh
+      - rsync
       - qemu-system
       - libvirt-clients
       - libvirt-daemon-system
       - virt-manager
-      # - terraform
+      - terraform
     update_cache: yes
     state: present
-
-- name: Install Terraform
-  ansible.builtin.apt:
-    pkg: 
-       - terraform
-    update_cache: yes
-    state: present
-  when: ansible_facts['lsb']['codename'] == "bullseye"
 
 - name: change user shell to zsh and append kvm group 
   ansible.builtin.user:

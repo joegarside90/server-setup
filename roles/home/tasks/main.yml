@@ -24,6 +24,7 @@
     state: present
   loop:
     - im.riot.Riot
+    - org.qbittorrent.qBittorrent
 
 - name: Enable service syncthing is enabled and started
   ansible.builtin.systemd:

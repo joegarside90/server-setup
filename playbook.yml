@@ -3,4 +3,5 @@
   roles:
     - role: common
     - role: geerlingguy.docker
-    - role: work
+    - role: home
+#    - role: work
