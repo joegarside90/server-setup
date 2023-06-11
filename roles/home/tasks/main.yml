@@ -1,0 +1,33 @@
+- name: Add Syncthing repository key
+  ansible.builtin.apt_key:
+    url: https://syncthing.net/release-key.gpg
+    keyring: /usr/share/keyrings/syncthing-archive-keyring.gpg
+    state: present
+
+- name: Add Syncthing repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable"
+    state: present
+    filename: syncthing
+
+- name: Install Home Applications
+  ansible.builtin.apt:
+    pkg: 
+      - syncthing
+      - hugo
+    update_cache: yes
+    state: present
+
+- name: Install Home Flatpak Applications
+  community.general.flatpak:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - im.riot.Riot
+    - org.qbittorrent.qBittorrent
+
+- name: Enable service syncthing is enabled and started
+  ansible.builtin.systemd:
+    name: syncthing@sam.service
+    enabled: true
+    state: started

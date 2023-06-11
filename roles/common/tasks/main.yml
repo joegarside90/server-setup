@@ -1,31 +1,23 @@
-- name: Remove Firefox snap 
-  community.general.snap:
-    name: firefox
-    state: absent
-
-- name: Disable Ubuntu Dock
-  ansible.builtin.shell: gnome-extensions disable ubuntu-dock@ubuntu.com
-  become_user: sam
+- name: Add Backports repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://deb.debian.org/debian bookworm-backports main"
+    state: present
+    filename: backports
+  when: ansible_facts['lsb']['codename'] == "bookworm"
 
 - name: Add Terraform repository key
   ansible.builtin.apt_key:
     url: https://apt.releases.hashicorp.com/gpg
     keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
     state: present
+  when: ansible_facts['lsb']['codename'] == "bookworm"
 
-- name: Add Terraform repository 22.04
+- name: Add Terraform repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com jammy main"
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com bookworm main"
     state: present
     filename: hashicorp
-  when: ansible_facts['lsb']['release'] == "22.04"
-
-# - name: Add Terraform repository 22.10
-#   ansible.builtin.apt_repository:
-#     repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com kinetic main"
-#     state: present
-#     filename: hashicorp
-#   when: ansible_facts['lsb']['release'] == "22.10"
+  when: ansible_facts['lsb']['codename'] == "bookworm"
 
 - name: Install Applications
   ansible.builtin.apt:
@@ -35,34 +27,38 @@
       - flatpak
       - gnome-software-plugin-flatpak
       - xclip
-      - evolution
       - wireguard
       - zsh
-      # - terraform
+      - rsync
+      - qemu-system
+      - libvirt-clients
+      - libvirt-daemon-system
+      - virt-manager
+      - terraform
     update_cache: yes
     state: present
 
-- name: Change shell to ZSH
-  ansible.builtin.shell: chsh -s $(which zsh)
-  become_user: sam
+- name: change user shell to zsh and append kvm group 
+  ansible.builtin.user:
+    name: sam
+    shell: /usr/bin/zsh
+    groups: libvirt
+    append: true
+
+- name: Check if oh-my-zsh is installed
+  ansible.builtin.stat:
+    path: /home/sam/.oh-my-zsh
+  register: ohmyzsh
 
 - name: Install oh-my-zsh
   ansible.builtin.shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
   become_user: sam
+  when: ohmyzsh.stat.islnk is not defined
 
-- name: Install ZSH syntax highlighting
-  ansible.builtin.shell: git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+- name: Install zsh-syntax-highlighting
+  ansible.builtin.command: git clone https://github.com/zsh-users/zsh-syntax-highlighting.git /home/sam/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
   become_user: sam
-
-
-- name: Install Terraform 22.04
-  ansible.builtin.apt:
-    pkg: 
-       - terraform
-    update_cache: yes
-    state: present
-  when: ansible_facts['lsb']['release'] == "22.04"
-
+  when: ohmyzsh.stat.islnk is not defined
 
 - name: Add the flathub flatpak repository
   community.general.flatpak_remote:
@@ -75,19 +71,15 @@
     name: "{{ item }}"
     state: present
   loop:
-    - org.mozilla.firefox
-    - org.libreoffice.LibreOffice
     - com.spotify.Client
     - org.keepassxc.KeePassXC
     - com.google.Chrome
     - org.gnome.clocks
-    - org.gnome.Calendar
     - com.mattjakeman.ExtensionManager
 
-
 - name: Check if Visual Studio Code is installed
-  stat:
-    path: /bin/code
+  ansible.builtin.stat:
+    path: /usr/bin/code
   register: vscode
 
 - name: Install Visual Studio Code
@@ -96,7 +88,7 @@
   when: vscode.stat.islnk is not defined
 
 - name: Check if awscli is installed
-  stat:
+  ansible.builtin.stat:
     path: /usr/local/bin/aws
   register: aws
 
@@ -108,8 +100,18 @@
   when: aws.stat.islnk is not defined
 
 - name: Install awscli
-  ansible.builtin.shell: sudo /home/sam/Downloads/aws/install
+  ansible.builtin.shell: /home/sam/Downloads/aws/install
   when: aws.stat.islnk is not defined
+
+- name: rm aws install dir
+  ansible.builtin.file:
+    path: /home/sam/Downloads/aws
+    state: absent
+
+- name: Check if aws-vault is installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/aws-vault
+  register: awsvault
 
 - name: Download and Install aws-vault
   ansible.builtin.get_url:
@@ -117,9 +119,10 @@
     dest: /usr/local/bin/aws-vault
     mode: '0755'
     checksum: sha256:https://github.com/99designs/aws-vault/releases/latest/download/SHA256SUMS
+  when: awsvault.stat.islnk is not defined
 
 - name: Check if Pyenv is installed
-  stat:
+  ansible.builtin.stat:
     path: /home/sam/.pyenv
   register: pyenv
 
@@ -163,6 +166,7 @@
   ansible.builtin.file:
     path: /home/sam/pyenv-installer
     state: absent
+  when: not pyenv.stat.exists
 
 - name: Create sbt92 repo directory
   ansible.builtin.file:
@@ -172,19 +176,19 @@
     state: directory
 
 - name: Check if dotfiles are installed
-  stat:
-    path: /home/sam/repos/sbt92/dotfiles
+  ansible.builtin.stat:
+    path: /home/sam/.dotfiles
   register: dotfiles
 
 - name: Checkout dotfiles
   ansible.builtin.git:
     repo: https://github.com/sbt92/dotfiles.git
-    dest: /home/sam/repos/sbt92/dotfiles
+    dest: /home/sam/.dotfiles
   when: not dotfiles.stat.exists
 
 - name: Install dotfiles
-  ansible.builtin.shell: /home/sam/repos/sbt92/dotfiles/install.sh
+  ansible.builtin.shell: /home/sam/.dotfiles/install.sh
   become_user: sam
   args:
-    chdir: /home/sam/repos/sbt92/dotfiles/
+    chdir: /home/sam/.dotfiles/
   when: not dotfiles.stat.exists
