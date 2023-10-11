@@ -15,6 +15,9 @@
     pkg: 
       - syncthing
       - hugo
+      - kiwix
+      - calibre
+      - zeal
     update_cache: yes
     state: present
 
@@ -24,7 +27,7 @@
     state: present
   loop:
     - im.riot.Riot
-    - org.qbittorrent.qBittorrent
+    - com.discordapp.Discord
 
 - name: Enable service syncthing is enabled and started
   ansible.builtin.systemd:

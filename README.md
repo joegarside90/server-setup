@@ -23,6 +23,3 @@ ansible-playbook playbook.yml --ask-become-pass
 - Install GPG Keys
 - Install SSH Keys
 - Install VS Codes Plugins (This is handled by the sync in VS Code when you log in)
-
-## Known bugs
-- The 1Password install (May need to comment/uncomment stuff for the time being until a better solution is sorted)

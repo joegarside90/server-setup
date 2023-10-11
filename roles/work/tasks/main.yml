@@ -8,6 +8,7 @@
     - com.jetbrains.GoLand
     - com.jetbrains.PyCharm-Professional
     - com.jetbrains.RubyMine
+    - org.chromium.Chromium
 
 - name: Check if OnePassword is installed
   shell: "flatpak list | grep OnePassword"

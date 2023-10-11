@@ -35,6 +35,8 @@
       - libvirt-daemon-system
       - virt-manager
       - terraform
+      - keepassxc
+      - vlc
     update_cache: yes
     state: present
 
@@ -73,9 +75,6 @@
     state: present
   loop:
     - com.spotify.Client
-    - org.keepassxc.KeePassXC
-    - com.google.Chrome
-    - org.gnome.clocks
     - com.mattjakeman.ExtensionManager
 
 - name: Check if Visual Studio Code is installed
