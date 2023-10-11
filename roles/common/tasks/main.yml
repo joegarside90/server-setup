@@ -56,9 +56,10 @@
   when: ohmyzsh.stat.islnk is not defined
 
 - name: Install zsh-syntax-highlighting
-  ansible.builtin.command: git clone https://github.com/zsh-users/zsh-syntax-highlighting.git /home/sam/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+  ansible.builtin.git: 
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git 
+    dest: /home/sam/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
   become_user: sam
-  when: ohmyzsh.stat.islnk is not defined
 
 - name: Add the flathub flatpak repository
   community.general.flatpak_remote:
