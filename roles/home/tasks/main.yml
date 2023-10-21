@@ -18,6 +18,7 @@
       - kiwix
       - calibre
       - zeal
+      - wireguard
     update_cache: yes
     state: present
 

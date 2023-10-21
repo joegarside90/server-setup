@@ -27,7 +27,6 @@
       - flatpak
       - gnome-software-plugin-flatpak
       - xclip
-      - wireguard
       - zsh
       - rsync
       - qemu-system
