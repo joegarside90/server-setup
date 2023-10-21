@@ -184,6 +184,7 @@
   ansible.builtin.git:
     repo: https://github.com/sbt92/dotfiles.git
     dest: /home/sam/.dotfiles
+  become_user: sam
   when: not dotfiles.stat.exists
 
 - name: Install dotfiles
