@@ -11,4 +11,4 @@
       - zfsutils-linux
     update_cache: yes
     state: present
-    default_release: bookworm-backport
+    default_release: bookworm-backports
