@@ -1,3 +1,11 @@
+- name: Add Source list
+  ansible.builtin.copy:
+    src:  source.list
+    dest: /etc/apt/source.list
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Add Backports repository
   ansible.builtin.apt_repository:
     repo: "deb http://deb.debian.org/debian bookworm-backports main non-free contrib"

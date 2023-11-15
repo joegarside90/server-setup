@@ -1,11 +1,3 @@
-- name: Add Source list
-  ansible.builtin.copy:
-    src:  source.list
-    dest: /etc/apt/source.list
-    owner: root
-    group: root
-    mode: '0644'
-
 - name: Install Server Applications
   ansible.builtin.apt:
     pkg: 
