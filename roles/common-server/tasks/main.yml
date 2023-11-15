@@ -1,6 +1,6 @@
 - name: Add Source list
   ansible.builtin.copy:
-    src: ../files/source.list
+    src:  source.list
     dest: /etc/apt/source.list
     owner: root
     group: root
