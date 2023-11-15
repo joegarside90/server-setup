@@ -1,22 +1,8 @@
 - name: Add Backports repository
   ansible.builtin.apt_repository:
-    repo: "deb http://deb.debian.org/debian bookworm-backports main"
+    repo: "deb http://deb.debian.org/debian bookworm-backports main non-free contrib"
     state: present
     filename: backports
-  when: ansible_facts['lsb']['codename'] == "bookworm"
-
-- name: Add Terraform repository key
-  ansible.builtin.apt_key:
-    url: https://apt.releases.hashicorp.com/gpg
-    keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    state: present
-  when: ansible_facts['lsb']['codename'] == "bookworm"
-
-- name: Add Terraform repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]     https://apt.releases.hashicorp.com bookworm main"
-    state: present
-    filename: hashicorp
   when: ansible_facts['lsb']['codename'] == "bookworm"
 
 - name: Install Applications
@@ -24,67 +10,19 @@
     pkg: 
       - git
       - vim
-      - flatpak
-      - gnome-software-plugin-flatpak
-      - xclip
-      - zsh
       - rsync
       - qemu-system
       - libvirt-clients
       - libvirt-daemon-system
       - virt-manager
-      - terraform
-      - keepassxc
-      - vlc
     update_cache: yes
     state: present
 
-- name: change user shell to zsh and append kvm group 
+- name: Append kvm group 
   ansible.builtin.user:
     name: sam
-    shell: /usr/bin/zsh
     groups: libvirt
     append: true
-
-- name: Check if oh-my-zsh is installed
-  ansible.builtin.stat:
-    path: /home/sam/.oh-my-zsh
-  register: ohmyzsh
-
-- name: Install oh-my-zsh
-  ansible.builtin.shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-  become_user: sam
-  when: ohmyzsh.stat.islnk is not defined
-
-- name: Install zsh-syntax-highlighting
-  ansible.builtin.git: 
-    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git 
-    dest: /home/sam/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-  become_user: sam
-
-- name: Add the flathub flatpak repository
-  community.general.flatpak_remote:
-    name: flathub
-    state: present
-    flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
-
-- name: Install Flatpak Applications
-  community.general.flatpak:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - com.spotify.Client
-    - com.mattjakeman.ExtensionManager
-
-- name: Check if Visual Studio Code is installed
-  ansible.builtin.stat:
-    path: /usr/bin/code
-  register: vscode
-
-- name: Install Visual Studio Code
-  ansible.builtin.apt:
-    deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
-  when: vscode.stat.islnk is not defined
 
 - name: Check if awscli is installed
   ansible.builtin.stat:
@@ -119,76 +57,3 @@
     mode: '0755'
     checksum: sha256:https://github.com/99designs/aws-vault/releases/latest/download/SHA256SUMS
   when: awsvault.stat.islnk is not defined
-
-- name: Check if Pyenv is installed
-  ansible.builtin.stat:
-    path: /home/sam/.pyenv
-  register: pyenv
-
-- name: Install Pyenv Prerequisites
-  ansible.builtin.apt:
-    pkg: 
-      - make
-      - build-essential
-      - libssl-dev
-      - zlib1g-dev
-      - libbz2-dev
-      - libreadline-dev
-      - libsqlite3-dev
-      - wget
-      - curl
-      - llvm
-      - libncursesw5-dev
-      - xz-utils
-      - tk-dev
-      - libxml2-dev
-      - libxmlsec1-dev
-      - libffi-dev
-      - liblzma-dev
-    update_cache: yes
-    state: present
-  when: not pyenv.stat.exists
-
-- name: Dowload pyenv Installer
-  ansible.builtin.get_url:
-    url: https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer
-    dest: /home/sam/pyenv-installer
-    mode: '0755'
-  when: not pyenv.stat.exists
-
-- name: Install pyenv
-  ansible.builtin.command: /home/sam/pyenv-installer
-  become_user: sam
-  when: not pyenv.stat.exists
-
-- name: rm pyenv installer script
-  ansible.builtin.file:
-    path: /home/sam/pyenv-installer
-    state: absent
-  when: not pyenv.stat.exists
-
-- name: Create sbt92 repo directory
-  ansible.builtin.file:
-    path: /home/sam/repos/sbt92
-    owner: sam
-    group: sam
-    state: directory
-
-- name: Check if dotfiles are installed
-  ansible.builtin.stat:
-    path: /home/sam/.dotfiles
-  register: dotfiles
-
-- name: Checkout dotfiles
-  ansible.builtin.git:
-    repo: https://github.com/sbt92/dotfiles.git
-    dest: /home/sam/.dotfiles
-  become_user: sam
-  when: not dotfiles.stat.exists
-
-- name: Install dotfiles
-  ansible.builtin.shell: /home/sam/.dotfiles/install.sh
-  become_user: sam
-  args:
-    chdir: /home/sam/.dotfiles/
-  when: not dotfiles.stat.exists

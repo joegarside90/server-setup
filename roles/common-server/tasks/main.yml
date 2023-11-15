@@ -1,0 +1,22 @@
+- name: Add Source list
+  ansible.builtin.copy:
+    src: ../files/source.list
+    dest: /etc/apt/source.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install Server Applications
+  ansible.builtin.apt:
+    pkg: 
+      - linux-headers-amd64
+    update_cache: yes
+    state: present
+
+- name: Install zfs from Backports
+  ansible.builtin.apt:
+    pkg: 
+      - zfsutils-linux
+    update_cache: yes
+    state: present
+    default_release: bookworm-backport
