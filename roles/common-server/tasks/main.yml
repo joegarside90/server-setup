@@ -2,13 +2,11 @@
   ansible.builtin.apt:
     pkg: 
       - linux-headers-amd64
+      - dpkg-dev 
+      - linux-headers-generic 
+      - linux-image-generic
     update_cache: yes
     state: present
 
 - name: Install zfs from Backports
-  ansible.builtin.apt:
-    pkg: 
-      - zfsutils-linux
-    update_cache: yes
-    state: present
-    default_release: bookworm-backports
+  ansible.builtin.command: "DEBIAN_FRONTEND=noninteractive  apt-get install -t bookworm-backports zfs-dkms zfsutils-linux -y"
