@@ -5,8 +5,47 @@
       - dpkg-dev 
       - linux-headers-generic 
       - linux-image-generic
+      - sanoid
     update_cache: yes
     state: present
 
-- name: Install zfs from Backports
-  ansible.builtin.command: "DEBIAN_FRONTEND=noninteractive  apt-get install -t bookworm-backports zfs-dkms zfsutils-linux -y"
+- name: Pin ZFS to backports
+  ansible.builtin.copy:
+    src: 90_zfs
+    dest: /etc/apt/preferences.d/90_zfs
+    owner: root
+    group: root
+    mode: '0644'
+
+# TODO: Fix this had to run the apt-get command manually
+#- name: Install zfs from Backports
+#  ansible.builtin.command: "export DEBIAN_FRONTEND=noninteractive &&  apt-get install -t bookworm-backports zfs-dkms zfsutils-linux -y"
+
+- name: Create sanoid config directory
+  ansible.builtin.file:
+    path: /etc/sanoid
+    state: directory
+
+
+- name: Copy sanoid default config
+  ansible.builtin.file:
+    src: /usr/share/sanoid/sanoid.defaults.conf
+    dest: /etc/sanoid/sanoid.defaults.conf
+    owner: root
+    group: root
+    mode: '0644'
+    state: link
+
+- name: Copy sanoid config
+  ansible.builtin.copy:
+    src: sanoid.conf
+    dest: /etc/sanoid/sanoid.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Start sanoid timer
+  ansible.builtin.systemd_service:
+    name: sanoid.timer
+    state: started
+    enabled: true
