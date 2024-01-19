@@ -1,0 +1,377 @@
+version: "3.7"
+
+########################### NETWORKS
+networks:
+  traefik_proxy:
+     external: true
+     name: traefik_proxy
+  default:
+    driver: bridge
+
+########################### SERVICES
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:latest 
+    restart: unless-stopped
+    command:
+      - --global.checkNewVersion=true
+      - --entryPoints.http.address=:80
+      - --entryPoints.https.address=:443
+      - --entryPoints.mqtt.address=:8883
+         # Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
+      - --entrypoints.https.forwardedHeaders.trustedIPs=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/12,172.64.0.0/13,131.0.72.0/22
+      - --entryPoints.traefik.address=:8080
+      - --serversTransport.insecureSkipVerify=true
+      - --log=true
+      - --log.level=ERROR # DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      - --accessLog=true
+      - --accessLog.filePath=/traefik.log
+      - --accessLog.bufferingSize=100 
+      - --accessLog.filters.statusCodes=400-499
+      - --providers.docker=true
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.$DOMAINNAME`)
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=traefik_proxy
+      - --providers.docker.swarmMode=false
+      - --providers.file.directory=/rules 
+      - --providers.file.watch=true 
+        #      - --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
+      - --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+      - target: 8883
+        published: 8883
+        protocol: tcp
+        mode: host
+    volumes:
+      - $DOCKERDIR/traefik2/rules:/rules 
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $DOCKERDIR/traefik2/acme/acme.json:/acme.json 
+      - $DOCKERDIR/traefik2/traefik.log:/traefik.log 
+      - $DOCKERDIR/shared:/shared
+    environment:
+      - CF_API_EMAIL=$CLOUDFLARE_EMAIL
+      - CF_API_KEY=$CLOUDFLARE_API_KEY
+    labels:
+      - "traefik.enable=true"
+      # HTTP-to-HTTPS Redirect
+      - "traefik.http.routers.http-catchall.entrypoints=http"
+      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # HTTP Routers
+      - "traefik.http.routers.traefik-rtr.entrypoints=https"
+      - "traefik.http.routers.traefik-rtr.rule=HostHeader(`traefik.$DOMAINNAME`)"
+      - "traefik.http.routers.traefik-rtr.tls=true"
+      - "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].main=$DOMAINNAME"
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.$DOMAINNAME"
+      # Services - API
+      - "traefik.http.routers.traefik-rtr.service=api@internal"
+      # Middlewares
+      - "traefik.http.routers.traefik-rtr.middlewares=chain-basic-auth@file" 
+      - "traefik.http.middlewares.traefik-headers.headers.accesscontrolallowmethods=GET, OPTIONS, PUT"
+      - "traefik.http.middlewares.traefik-headers.headers.accesscontrolalloworiginlist=https://$DOMAINNAME"
+      - "traefik.http.middlewares.traefik-headers.headers.accesscontrolmaxage=100"
+      - "traefik.http.middlewares.traefik-headers.headers.addvaryheader=true" 
+      - "traefik.http.middlewares.traefik-headers.headers.allowedhosts=traefik.$DOMAINNAME" 
+      - "traefik.http.middlewares.traefik-headers.headers.hostsproxyheaders=X-Forwarded-Host"
+      - "traefik.http.middlewares.traefik-headers.headers.sslredirect=true"
+      - "traefik.http.middlewares.traefik-headers.headers.sslhost=traefik.$DOMAINNAME" 
+      - "traefik.http.middlewares.traefik-headers.headers.sslforcehost=true"
+      - "traefik.http.middlewares.traefik-headers.headers.sslproxyheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.traefik-headers.headers.stsseconds=63072000"
+      - "traefik.http.middlewares.traefik-headers.headers.stsincludesubdomains=true"
+      - "traefik.http.middlewares.traefik-headers.headers.stspreload=true"
+      - "traefik.http.middlewares.traefik-headers.headers.forcestsheader=true"
+      - "traefik.http.middlewares.traefik-headers.headers.framedeny=true"
+      - "traefik.http.middlewares.traefik-headers.headers.contenttypenosniff=true"
+      - "traefik.http.middlewares.traefik-headers.headers.browserxssfilter=true"
+      - "traefik.http.middlewares.traefik-headers.headers.referrerpolicy=same-origin"
+      - "traefik.http.middlewares.traefik-headers.headers.featurepolicy=camera 'none'; geolocation 'none'; microphone 'none'; payment 'none'; usb 'none'; vr 'none';"
+      - "traefik.http.middlewares.traefik-headers.headers.customresponseheaders.X-Robots-Tag=none,noarchive,nosnippet,notranslate,noimageindex,"
+
+  jellyfin:
+    container_name: jellyfin
+    image: jellyfin/jellyfin:latest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+    volumes:
+      - $DOCKERDIR/jellyfin/config:/config
+      - $DOCKERDIR/jellyfin/cache:/cache
+      - /mnt/tank/n54l/multimedia:/media
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"     
+      - "traefik.http.routers.jellyfin-rtr.entrypoints=https"
+      - "traefik.http.routers.jellyfin-rtr.rule=Host(`jf.$DOMAINNAME`,`jellyfin.$DOMAINNAME`)"
+      - "traefik.http.routers.jellyfin-rtr.tls=true"
+      - "traefik.http.routers.jellyfin-rtr.middlewares=chain-no-auth@file" # No Authentication
+      - "traefik.http.routers.jellyfin-rtr.service=jellyfin-svc"
+      - "traefik.http.services.jellyfin-svc.loadbalancer.server.port=8096"
+
+  gitea:
+    container_name: gitea
+    image: gitea/gitea:latest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "2222:22"
+    volumes:
+      - $DOCKERDIR/gitea:/data
+      - /mnt/tank/n54l/git:/data/git
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"     
+      - "traefik.http.routers.gitea-rtr.entrypoints=https"
+      - "traefik.http.routers.gitea-rtr.rule=Host(`git.$DOMAINNAME`)"
+      - "traefik.http.routers.gitea-rtr.tls=true"
+      - "traefik.http.routers.gitea-rtr.middlewares=chain-no-auth@file" # No Authentication
+      - "traefik.http.routers.gitea-rtr.service=gitea-svc"
+      - "traefik.http.services.gitea-svc.loadbalancer.server.port=3000"
+
+  homeassistant:
+    container_name: homeassistant
+    image: homeassistant/home-assistant:stable
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true 
+    volumes:
+      - $DOCKERDIR/homeassistant:/config
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"     
+      - "traefik.http.routers.hass-rtr.entrypoints=https"
+      - "traefik.http.routers.hass-rtr.rule=Host(`hass.$DOMAINNAME`)"
+      - "traefik.http.routers.hass-rtr.tls=true"      
+      - "traefik.http.routers.hass-rtr.middlewares=chain-no-auth@file" # No Authentication     
+      - "traefik.http.routers.hass-rtr.service=hass-svc"
+      - "traefik.http.services.hass-svc.loadbalancer.server.port=8123"
+
+  syncthing:
+    container_name: syncthing
+    image: linuxserver/syncthing:latest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 22000:22000
+      - 21027:21027/udp
+    volumes:
+      - $DOCKERDIR/syncthing:/config
+      - /mnt/tank/n54l/syncthing:/syncthing-folders
+    environment:
+      - TZ=$TZ
+      - PUID=1000
+      - PGID=1000
+      - UMASK_SET="<022>"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncthing-rtr.entrypoints=https"
+      - "traefik.http.routers.syncthing-rtr.rule=Host(`syncthing.$DOMAINNAME`)"
+      - "traefik.http.routers.syncthing-rtr.tls=true"      
+      - "traefik.http.routers.syncthing-rtr.middlewares=chain-no-auth@file" # No Authentication     
+      - "traefik.http.routers.syncthing-rtr.service=syncthing-svc"
+      - "traefik.http.services.syncthing-svc.loadbalancer.server.port=8384"
+
+  freshrss:
+    image: lscr.io/linuxserver/freshrss:latest
+    container_name: freshrss
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - $DOCKERDIR/freshrss:/config
+    environment:
+      - TZ=$TZ
+      - PUID=1000
+      - PGID=1000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freshrss-rtr.entrypoints=https"
+      - "traefik.http.routers.freshrss-rtr.rule=Host(`freshrss.$DOMAINNAME`)"
+      - "traefik.http.routers.freshrss-rtr.tls=true"      
+      - "traefik.http.routers.freshrss-rtr.middlewares=chain-no-auth@file" # No Authentication     
+      - "traefik.http.routers.freshrss-rtr.service=freshrss-svc"
+      - "traefik.http.services.freshrss-svc.loadbalancer.server.port=80"
+
+  healthchecks:
+    container_name: healthchecks
+    image: linuxserver/healthchecks:latest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - $DOCKERDIR/healthchecks:/config
+    environment:
+      - TZ=$TZ
+      - PUID=1000
+      - PGID=1000
+      - UMASK_SET="<022>"
+      - SITE_ROOT=https://healthchecks.$DOMAINNAME
+      - SITE_NAME=Healthcheck @ Tripp
+      - SUPERUSER_EMAIL=$EMAIL
+      - SUPERUSER_PASSWORD=$PASSWORD
+    labels:
+      - "traefik.enable=true"      
+      - "traefik.http.routers.healthchecks-rtr.entrypoints=https"
+      - "traefik.http.routers.healthchecks-rtr.rule=Host(`healthchecks.$DOMAINNAME`)"
+      - "traefik.http.routers.healthchecks-rtr.tls=true"
+      - "traefik.http.routers.healthchecks-rtr.middlewares=chain-no-auth@file" # No Authentication
+      - "traefik.http.routers.healthchecks-rtr.service=healthchecks-svc"
+      - "traefik.http.services.healthchecks-svc.loadbalancer.server.port=8000"
+
+  gotify:
+    container_name: gotify
+    image: gotify/server:latest
+    restart: unless-stopped
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - $DOCKERDIR/gotify:/app/data
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gotify-rtr.entrypoints=https"
+      - "traefik.http.routers.gotify-rtr.rule=Host(`gotify.$DOMAINNAME`)"
+      - "traefik.http.routers.gotify-rtr.tls=true"  
+      - "traefik.http.routers.gotify-rtr.middlewares=chain-no-auth@file" # No Authentication
+      - "traefik.http.routers.gotify-rtr.service=gotify-svc"
+      - "traefik.http.services.gotify-svc.loadbalancer.server.port=80"
+
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto
+    restart: unless-stopped
+    networks:
+      - traefik_proxy  
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - $DOCKERDIR/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - $DOCKERDIR/mosquitto/data:/mosquitto/data
+      - $DOCKERDIR/mosquitto/log:/mosquitto/log
+    ports:
+      - "1883:1883"
+    environment:
+      - TZ=$TZ
+      - PUID=1000
+      - PGID=1000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.mosquitto-rtr.entrypoints=mqtt"
+      - "traefik.tcp.routers.mosquitto-rtr.rule=HostSNI(`mqtt.$DOMAINNAME`)"
+      - "traefik.tcp.routers.mosquitto-rtr.tls=true"
+      - "traefik.tcp.routers.mosquitto-rtr.service=mosquitto-svc"
+      - "traefik.tcp.services.mosquitto-svc.loadbalancer.server.port=1883"
+
+  omada-controller:
+    container_name: omada-controller
+    image: mbentley/omada-controller:latest
+    restart: unless-stopped
+    network_mode: host
+    ports:
+    - "8043:8043"
+    environment:
+      - MANAGE_HTTPS_PORT=8043
+      - PGID=1000
+      - PORTAL_HTTPS_PORT=8043
+      - PUID=1000
+      - SHOW_SERVER_LOGS=true
+      - SHOW_MONGODB_LOGS=false
+      - TZ=$TZ
+    volumes:
+      - $DOCKERDIR/omada-controller/data:/opt/tplink/EAPController/data
+      - $DOCKERDIR/omada-controller/work:/opt/tplink/EAPController/work
+      - $DOCKERDIR/omada-controller/logs:/opt/tplink/EAPController/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.omada.rule=Host(`omada.$DOMAINNAME`)"
+      - "traefik.http.routers.omada.entrypoints=https"
+      - "traefik.http.routers.omada.tls.certresolver=myresolver"
+      - "traefik.http.routers.omada.tls.domains[0].main=*.$DOMAINNAME"
+      - "traefik.http.services.omada.loadbalancer.server.port=8043"
+      - "traefik.http.routers.omada.service=omada"
+      - "traefik.http.services.omada.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.omada.middlewares=omada-middlewares"
+      - "traefik.http.middlewares.omada-middlewares.chain.middlewares=omada-redirect@docker,omada-headers@docker"
+      - "traefik.http.middlewares.omada-headers.headers.customrequestheaders.Host=omada.$DOMAINNAME:8043"
+      - "traefik.http.middlewares.omada-headers.headers.customresponseheaders.Host=omada.$DOMAINNAME"
+      - "traefik.http.middlewares.omada-redirect.redirectregex.regex=^https:\\/\\/([^\\/]+)\\/?$$"
+      - "traefik.http.middlewares.omada-redirect.redirectregex.replacement=https://$$1:8043/e0ad4690fde8e14465bd013670d3653d/login"
+
+  cloudflare-ddns:
+    container_name: cloudflare-ddns
+    image: oznu/cloudflare-ddns:latest
+    restart: unless-stopped
+    environment:
+      - API_KEY=$CLOUDFLARE_DDNS
+      - ZONE=tripp.me.uk
+      - SUBDOMAIN=vpn
+      - PROXIED=false
+
+  # zigbee2mqtt:
+  #   container_name: zigbee2mqtt
+  #   image: koenkk/zigbee2mqtt
+  #   restart: unless-stopped
+  #   networks:
+  #     - traefik_proxy
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   volumes:
+  #     - $DOCKERDIR/zigbee2mqtt:/app/data
+  #     - /run/udev:/run/udev:ro
+  #   environment:
+  #     - TZ=$TZ
+  #   devices:
+  #     - /dev/ttyUSB0:/dev/ttyUSB0
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.zigbee2mqtt-rtr.entrypoints=https"
+  #     - "traefik.http.routers.zigbee2mqtt-rtr.rule=Host(`zigbee2mqtt.$DOMAINNAME`)"
+  #     - "traefik.http.routers.zigbee2mqtt-rtr.tls=true"  
+  #     - "traefik.http.routers.zigbee2mqtt-rtr.middlewares=chain-no-auth@file" # No Authentication
+  #     - "traefik.http.routers.zigbee2mqtt-rtr.service=zigbee2mqtt-svc"
+  #     - "traefik.http.services.zigbee2mqtt-svc.loadbalancer.server.port=8080"
