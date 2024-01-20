@@ -1,3 +1,18 @@
+- name: Add Tailscale repository key
+  ansible.builtin.apt_key:
+    url: https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg
+    keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    state: present
+  when: ansible_facts['lsb']['codename'] == "bookworm"
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian bookworm main"
+    state: present
+    filename: tailscale
+  when: ansible_facts['lsb']['codename'] == "bookworm"
+
+
 - name: Install Server Applications
   ansible.builtin.apt:
     pkg: 
@@ -6,6 +21,7 @@
       - linux-headers-generic 
       - linux-image-generic
       - sanoid
+      - tailscale
     update_cache: yes
     state: present
 
@@ -71,3 +87,17 @@
     owner: sam
     group: sam
     mode: '0644'
+
+- name: Add Tailscale repository key
+  ansible.builtin.apt_key:
+    url: https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg
+    keyring: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    state: present
+  when: ansible_facts['lsb']['codename'] == "bookworm"
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian bookworm main"
+    state: present
+    filename: tailscale
+  when: ansible_facts['lsb']['codename'] == "bookworm"
