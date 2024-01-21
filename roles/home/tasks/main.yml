@@ -32,8 +32,8 @@
       - kiwix
       - calibre
       - zeal
-      - wireguard
       - tailscale
+      - nextcloud-desktop
     update_cache: yes
     state: present
 
