@@ -1,18 +1,3 @@
-- name: Add Source list
-  ansible.builtin.copy:
-    src:  source.list
-    dest: /etc/apt/source.list
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Add Backports repository
-  ansible.builtin.apt_repository:
-    repo: "deb http://deb.debian.org/debian bookworm-backports main non-free contrib"
-    state: present
-    filename: backports
-  when: ansible_facts['lsb']['codename'] == "bookworm"
-
 - name: Install Applications
   ansible.builtin.apt:
     pkg: 
@@ -31,37 +16,3 @@
     name: sam
     groups: libvirt
     append: true
-
-- name: Check if awscli is installed
-  ansible.builtin.stat:
-    path: /usr/local/bin/aws
-  register: aws
-
-- name: Download awscli
-  ansible.builtin.unarchive:
-    src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
-    dest: /home/sam/Downloads/
-    remote_src: yes
-  when: aws.stat.islnk is not defined
-
-- name: Install awscli
-  ansible.builtin.shell: /home/sam/Downloads/aws/install
-  when: aws.stat.islnk is not defined
-
-- name: rm aws install dir
-  ansible.builtin.file:
-    path: /home/sam/Downloads/aws
-    state: absent
-
-- name: Check if aws-vault is installed
-  ansible.builtin.stat:
-    path: /usr/local/bin/aws-vault
-  register: awsvault
-
-- name: Download and Install aws-vault
-  ansible.builtin.get_url:
-    url: https://github.com/99designs/aws-vault/releases/latest/download/aws-vault-linux-amd64
-    dest: /usr/local/bin/aws-vault
-    mode: '0755'
-    checksum: sha256:https://github.com/99designs/aws-vault/releases/latest/download/SHA256SUMS
-  when: awsvault.stat.islnk is not defined
