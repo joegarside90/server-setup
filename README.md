@@ -1,5 +1,5 @@
-# Laptop Setup
-This is an Ansible Playbook to get my Debian workstation up and running as quickly as possible. 
+# Server Setup
+Ansible Playbook to setup and configure the Intel N100 server running Rocky Linux
 
 
 ## Prereqs

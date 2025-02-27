@@ -110,6 +110,47 @@ services:
       - "traefik.http.middlewares.traefik-headers.headers.featurepolicy=camera 'none'; geolocation 'none'; microphone 'none'; payment 'none'; usb 'none'; vr 'none';"
       - "traefik.http.middlewares.traefik-headers.headers.customresponseheaders.X-Robots-Tag=none,noarchive,nosnippet,notranslate,noimageindex,"
 
+  pihole:
+      container_name: pihole
+      image: pihole/pihole:latest
+      ports:
+        # DNS Ports
+        - "53:53/tcp"
+        - "53:53/udp"
+        # Default HTTP Port
+        - "80:80/tcp"
+        # Default HTTPs Port. FTL will generate a self-signed certificate
+        - "443:443/tcp"
+        # Uncomment the below if using Pi-hole as your DHCP Server
+        #- "67:67/udp"
+      environment:
+        # Set the appropriate timezone for your location (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g:
+        TZ: 'Europe/London'
+        # Set a password to access the web interface. Not setting one will result in a random password being assigned
+        FTLCONF_webserver_api_password: 'correct horse battery staple'
+        # If using Docker's default `bridge` network setting the dns listening mode should be set to 'all'
+        FTLCONF_dns_listeningMode: 'all'
+      # Volumes store your data between container upgrades
+      volumes:
+        # For persisting Pi-hole's databases and common configuration file
+        - './etc-pihole:/etc/pihole'
+        # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
+        #- './etc-dnsmasq.d:/etc/dnsmasq.d'
+      cap_add:
+        # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+        # Required if you are using Pi-hole as your DHCP server, else not needed
+        - NET_ADMIN
+        # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+        - SYS_TIME
+        # Optional, if Pi-hole should get some more processing time
+        - SYS_NICE
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.pihole.rule=Host(`pihole.local`)"
+        - "traefik.http.services.pihole.loadbalancer.server.port=80"
+        - "traefik.http.routers.pihole.entrypoints=web"
+      restart: unless-stopped
+
   jellyfin:
     container_name: jellyfin
     image: jellyfin/jellyfin:latest
@@ -136,30 +177,6 @@ services:
       - "traefik.http.routers.jellyfin-rtr.service=jellyfin-svc"
       - "traefik.http.services.jellyfin-svc.loadbalancer.server.port=8096"
 
-  gitea:
-    container_name: gitea
-    image: gitea/gitea:latest
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - "2222:22"
-    volumes:
-      - $DOCKERDIR/gitea:/data
-      - /mnt/tank/n54l/git:/data/git
-    environment:
-      - TZ=$TZ
-    labels:
-      - "traefik.enable=true"     
-      - "traefik.http.routers.gitea-rtr.entrypoints=https"
-      - "traefik.http.routers.gitea-rtr.rule=Host(`git.$DOMAINNAME`)"
-      - "traefik.http.routers.gitea-rtr.tls=true"
-      - "traefik.http.routers.gitea-rtr.middlewares=chain-no-auth@file" # No Authentication
-      - "traefik.http.routers.gitea-rtr.service=gitea-svc"
-      - "traefik.http.services.gitea-svc.loadbalancer.server.port=3000"
-
   homeassistant:
     container_name: homeassistant
     image: homeassistant/home-assistant:stable
@@ -181,167 +198,6 @@ services:
       - "traefik.http.routers.hass-rtr.service=hass-svc"
       - "traefik.http.services.hass-svc.loadbalancer.server.port=8123"
 
-  syncthing:
-    container_name: syncthing
-    image: linuxserver/syncthing:latest
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - 22000:22000
-      - 21027:21027/udp
-    volumes:
-      - $DOCKERDIR/syncthing:/config
-      - /mnt/tank/n54l/syncthing:/syncthing-folders
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-      - UMASK_SET="<022>"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.syncthing-rtr.entrypoints=https"
-      - "traefik.http.routers.syncthing-rtr.rule=Host(`syncthing.$DOMAINNAME`)"
-      - "traefik.http.routers.syncthing-rtr.tls=true"      
-      - "traefik.http.routers.syncthing-rtr.middlewares=chain-no-auth@file" # No Authentication     
-      - "traefik.http.routers.syncthing-rtr.service=syncthing-svc"
-      - "traefik.http.services.syncthing-svc.loadbalancer.server.port=8384"
-
-  freshrss:
-    image: lscr.io/linuxserver/freshrss:latest
-    container_name: freshrss
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/freshrss:/config
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.freshrss-rtr.entrypoints=https"
-      - "traefik.http.routers.freshrss-rtr.rule=Host(`freshrss.$DOMAINNAME`)"
-      - "traefik.http.routers.freshrss-rtr.tls=true"      
-      - "traefik.http.routers.freshrss-rtr.middlewares=chain-no-auth@file" # No Authentication     
-      - "traefik.http.routers.freshrss-rtr.service=freshrss-svc"
-      - "traefik.http.services.freshrss-svc.loadbalancer.server.port=80"
-
-  healthchecks:
-    container_name: healthchecks
-    image: linuxserver/healthchecks:latest
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/healthchecks:/config
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-      - UMASK_SET="<022>"
-      - SITE_ROOT=https://healthchecks.$DOMAINNAME
-      - SITE_NAME=Healthcheck @ Tripp
-      - SUPERUSER_EMAIL=$EMAIL
-      - SUPERUSER_PASSWORD=$PASSWORD
-    labels:
-      - "traefik.enable=true"      
-      - "traefik.http.routers.healthchecks-rtr.entrypoints=https"
-      - "traefik.http.routers.healthchecks-rtr.rule=Host(`healthchecks.$DOMAINNAME`)"
-      - "traefik.http.routers.healthchecks-rtr.tls=true"
-      - "traefik.http.routers.healthchecks-rtr.middlewares=chain-no-auth@file" # No Authentication
-      - "traefik.http.routers.healthchecks-rtr.service=healthchecks-svc"
-      - "traefik.http.services.healthchecks-svc.loadbalancer.server.port=8000"
-
-  gotify:
-    container_name: gotify
-    image: gotify/server:latest
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/gotify:/app/data
-    environment:
-      - TZ=$TZ
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gotify-rtr.entrypoints=https"
-      - "traefik.http.routers.gotify-rtr.rule=Host(`gotify.$DOMAINNAME`)"
-      - "traefik.http.routers.gotify-rtr.tls=true"  
-      - "traefik.http.routers.gotify-rtr.middlewares=chain-no-auth@file" # No Authentication
-      - "traefik.http.routers.gotify-rtr.service=gotify-svc"
-      - "traefik.http.services.gotify-svc.loadbalancer.server.port=80"
-
-  mosquitto:
-    container_name: mosquitto
-    image: eclipse-mosquitto
-    restart: unless-stopped
-    networks:
-      - traefik_proxy  
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - $DOCKERDIR/mosquitto/data:/mosquitto/data
-      - $DOCKERDIR/mosquitto/log:/mosquitto/log
-    ports:
-      - "1883:1883"
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-    labels:
-      - "traefik.enable=true"
-      - "traefik.tcp.routers.mosquitto-rtr.entrypoints=mqtt"
-      - "traefik.tcp.routers.mosquitto-rtr.rule=HostSNI(`mqtt.$DOMAINNAME`)"
-      - "traefik.tcp.routers.mosquitto-rtr.tls=true"
-      - "traefik.tcp.routers.mosquitto-rtr.service=mosquitto-svc"
-      - "traefik.tcp.services.mosquitto-svc.loadbalancer.server.port=1883"
-
-  omada-controller:
-    container_name: omada-controller
-    image: mbentley/omada-controller:latest
-    restart: unless-stopped
-    network_mode: host
-    ports:
-    - "8043:8043"
-    environment:
-      - MANAGE_HTTPS_PORT=8043
-      - PGID=1000
-      - PORTAL_HTTPS_PORT=8043
-      - PUID=1000
-      - SHOW_SERVER_LOGS=true
-      - SHOW_MONGODB_LOGS=false
-      - TZ=$TZ
-    volumes:
-      - $DOCKERDIR/omada-controller/data:/opt/tplink/EAPController/data
-      - $DOCKERDIR/omada-controller/work:/opt/tplink/EAPController/work
-      - $DOCKERDIR/omada-controller/logs:/opt/tplink/EAPController/logs
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.omada.rule=Host(`omada.$DOMAINNAME`)"
-      - "traefik.http.routers.omada.entrypoints=https"
-      - "traefik.http.routers.omada.tls.certresolver=myresolver"
-      - "traefik.http.routers.omada.tls.domains[0].main=*.$DOMAINNAME"
-      - "traefik.http.services.omada.loadbalancer.server.port=8043"
-      - "traefik.http.routers.omada.service=omada"
-      - "traefik.http.services.omada.loadbalancer.server.scheme=https"
-      - "traefik.http.routers.omada.middlewares=omada-middlewares"
-      - "traefik.http.middlewares.omada-middlewares.chain.middlewares=omada-redirect@docker,omada-headers@docker"
-      - "traefik.http.middlewares.omada-headers.headers.customrequestheaders.Host=omada.$DOMAINNAME:8043"
-      - "traefik.http.middlewares.omada-headers.headers.customresponseheaders.Host=omada.$DOMAINNAME"
-      - "traefik.http.middlewares.omada-redirect.redirectregex.regex=^https:\\/\\/([^\\/]+)\\/?$$"
-      - "traefik.http.middlewares.omada-redirect.redirectregex.replacement=https://$$1:8043/e0ad4690fde8e14465bd013670d3653d/login"
-
   cloudflare-ddns:
     container_name: cloudflare-ddns
     image: oznu/cloudflare-ddns:latest
@@ -351,74 +207,3 @@ services:
       - ZONE=tripp.me.uk
       - SUBDOMAIN=vpn
       - PROXIED=false
-
-  # zigbee2mqtt:
-  #   container_name: zigbee2mqtt
-  #   image: koenkk/zigbee2mqtt
-  #   restart: unless-stopped
-  #   networks:
-  #     - traefik_proxy
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   volumes:
-  #     - $DOCKERDIR/zigbee2mqtt:/app/data
-  #     - /run/udev:/run/udev:ro
-  #   environment:
-  #     - TZ=$TZ
-  #   devices:
-  #     - /dev/ttyUSB0:/dev/ttyUSB0
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.zigbee2mqtt-rtr.entrypoints=https"
-  #     - "traefik.http.routers.zigbee2mqtt-rtr.rule=Host(`zigbee2mqtt.$DOMAINNAME`)"
-  #     - "traefik.http.routers.zigbee2mqtt-rtr.tls=true"  
-  #     - "traefik.http.routers.zigbee2mqtt-rtr.middlewares=chain-no-auth@file" # No Authentication
-  #     - "traefik.http.routers.zigbee2mqtt-rtr.service=zigbee2mqtt-svc"
-  #     - "traefik.http.services.zigbee2mqtt-svc.loadbalancer.server.port=8080"
-
-  nextcloud:
-    container_name: nextcloud
-    image: nextcloud:28
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/nextcloud/app:/var/www/html
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=nextcloud
-      - POSTGRES_PASSWORD=$NEXTCLOUD_DB_PASSWORD
-      - POSTGRES_HOST=nextcloud-postgres
-    depends_on:
-      - nextcloud-postgres
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nextcloud-rtr.entrypoints=https"
-      - "traefik.http.routers.nextcloud-rtr.rule=Host(`nextcloud.$DOMAINNAME`)"
-      - "traefik.http.routers.nextcloud-rtr.tls=true"      
-      - "traefik.http.routers.nextcloud-rtr.middlewares=chain-no-auth@file" # No Authentication     
-      - "traefik.http.routers.nextcloud-rtr.service=nextcloud-svc"
-      - "traefik.http.services.nextcloud-svc.loadbalancer.server.port=80"
-
-  nextcloud-postgres:
-    container_name: nextcloud-postgres
-    image: postgres:16
-    restart: unless-stopped
-    networks:
-      - traefik_proxy
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - $DOCKERDIR/nextcloud/database:/var/lib/postgresql/data
-    environment:
-      - TZ=$TZ
-      - PUID=1000
-      - PGID=1000
-      - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=nextcloud
-      - POSTGRES_PASSWORD=$NEXTCLOUD_DB_PASSWORD
