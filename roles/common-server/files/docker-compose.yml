@@ -177,6 +177,83 @@ services:
       - "traefik.http.routers.jellyfin-rtr.service=jellyfin-svc"
       - "traefik.http.services.jellyfin-svc.loadbalancer.server.port=8096"
 
+jackett:    
+    image: linuxserver/jackett    
+    container_name: jackett
+    environment:    
+        - PUID=1000    
+        - PGID=1000    
+        - TZ=Americas/New_York    
+    volumes:    
+        - ./config/jackett:/config    
+    ports:    
+        - 9117:9117    
+    restart: unless-stopped
+
+transmission:    
+    image: haugene/transmission-openvpn    
+    container_name: transmission
+    volumes:
+        - /mnt/data:/mnt/data
+    environment:
+        - PUID=1000
+        - PGID=1000
+        - CREATE_TUN_DEVICE=true
+        - OPENVPN_PROVIDER=PIA
+        - OPENVPN_CONFIG=ca_toronto
+        - OPENVPN_USERNAME=username
+        - OPENVPN_PASSWORD=password
+        - WEBPROXY_ENABLED=false
+        - TRANSMISSION_DOWNLOAD_DIR=/mnt/data/downloads
+        - TRANSMISSION_IDLE_SEEDING_LIMIT_ENABLED=true
+        - TRANSMISSION_SEED_QUEUE_ENABLED=true
+        - TRANSMISSION_INCOMPLETE_DIR_ENABLED=false
+        - LOCAL_NETWORK=192.168.0.0/16
+    cap_add:
+        - NET_ADMIN
+    logging:
+        driver: json-file
+        options:
+            max-size: 10m
+    ports:
+        - "9091:9091"
+    restart: unless-stopped
+
+sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=America/New_York
+    volumes:
+        - ./config/sonarr:/config
+        - /mnt/data:/mnt/data
+    ports:
+        - 8989:8989		
+    depends_on:
+        - jackett
+        - transmission
+    restart: unless-stopped
+
+radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    hostname: radarr
+    environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=America/New_York
+    volumes:
+        - ./config/radarr:/config
+        - /mnt/data:/mnt/data
+    ports:
+        - 7878:7878
+    depends_on:
+        - jackett
+        - transmission
+    restart: unless-stopped
+
   homeassistant:
     container_name: homeassistant
     image: homeassistant/home-assistant:stable
